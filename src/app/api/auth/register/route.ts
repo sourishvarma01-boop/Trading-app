@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { createProfile } from '@/lib/models';
 import { STARTING_CASH } from '@/lib/stocks';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -11,23 +10,24 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Username and password required' }, { status: 400 });
         }
 
-        // Use Supabase Auth as the source of truth
+        // Generate a fake email from username since we use username-based auth
+        const fakeEmail = `${username.trim().toLowerCase()}@tradeapp.com`;
+
         const { data, error } = await supabase.auth.signUp({
-            email: username.trim(),
+            email: fakeEmail,
             password: password.trim(),
+            options: {
+                data: { username: username.trim() } // trigger reads this to create profile
+            }
         });
 
         if (error || !data.user) {
             console.error('Supabase signUp error:', error);
-            return NextResponse.json({ error: 'Registration failed' }, { status: 400 });
-        }
-
-        const profile = await createProfile(data.user.id, username.trim(), STARTING_CASH);
-        if (!profile) {
-            return NextResponse.json({ error: 'Failed to create profile' }, { status: 500 });
+            return NextResponse.json({ error: error?.message || 'Registration failed' }, { status: 400 });
         }
 
         return NextResponse.json({ success: true, message: 'Account created! Please login.' });
+
     } catch (e) {
         console.error('Register error:', e);
         return NextResponse.json({ error: 'Registration failed' }, { status: 500 });
